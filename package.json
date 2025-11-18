@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate",
     "debug:segment": "ts-node scripts/debug-import-segment.ts",
     "update-passwords": "tsx prisma/update-passwords.ts"
 
