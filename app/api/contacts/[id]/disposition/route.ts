@@ -57,10 +57,16 @@ export async function POST(
         return NextResponse.json({ ok: true });
       }
 
-      case "BOOKED": {
+       case "BOOKED": {
         await prisma.contact.update({
           where: { id },
-          data: { state: "BOOKED", reviveAt: null, lastCalledAt: now },
+          data: {
+            state: "BOOKED",
+            callNote: body.note ?? null,
+            assignedToId: userId ?? null,   // 👈 garante que fica associado a quem marcou
+            reviveAt: null,
+            lastCalledAt: now,
+          },
         });
         return NextResponse.json({ ok: true });
       }

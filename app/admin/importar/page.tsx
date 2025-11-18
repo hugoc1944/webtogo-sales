@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 export default function ImportarPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [segmentKey, setSegmentKey] = useState("A_CONSTRUCAO_SERVICOS_LAR");
   const [res, setRes] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,26 +27,44 @@ export default function ImportarPage() {
     }
     setBusy(true);
     setError(null);
+    setRes(null);
+
     try {
       const fd = new FormData();
       fd.set("file", file);
-      const r = await fetch("/api/admin/contacts/import", { method: "POST", body: fd });
+      fd.set("segmentKey", segmentKey); // 👈 MANDAR O SEGMENTO
+
+      const r = await fetch("/api/admin/contacts/import", {
+        method: "POST",
+        body: fd,
+      });
+
       const js = await r.json();
       setRes(js);
-      if (!r.ok) setError(js?.error || "Falha ao importar.");
-    } catch (err: any) {
-      setError("Erro ao importar. Veja a consola.");
+
+      if (!r.ok) {
+        setError(js?.error || "Falha ao importar.");
+      }
+    } catch (err) {
       console.error(err);
+      setError("Erro ao importar. Veja a consola.");
     } finally {
       setBusy(false);
     }
   };
 
+  const summary = res?.summary;
+
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold mb-4 text-[#0e2a4a]">Importar contactos (CSV)</h1>
+      <h1 className="text-2xl font-semibold mb-4 text-[#0e2a4a]">
+        Importar contactos (CSV)
+      </h1>
 
-      <form onSubmit={submit} className="rounded-xl bg-white shadow p-5 flex flex-wrap items-center gap-3">
+      <form
+        onSubmit={submit}
+        className="rounded-xl bg-white shadow p-5 flex flex-wrap items-center gap-3"
+      >
         {/* input escondido */}
         <input
           ref={inputRef}
@@ -70,6 +89,49 @@ export default function ImportarPage() {
           {file ? file.name : "Nenhum ficheiro selecionado"}
         </span>
 
+        {/* Segmento */}
+        <div className="flex flex-col gap-1 ml-auto min-w-[260px]">
+          <label className="text-sm font-medium text-slate-700">
+            Segmento (A-J)
+          </label>
+          <select
+            value={segmentKey}
+            onChange={(e) => setSegmentKey(e.target.value)}
+            className="rounded-md border bg-white text-sm px-3 py-2 outline-none focus:ring-2 focus:ring-[#00b8b8]"
+          >
+            <option value="A_CONSTRUCAO_SERVICOS_LAR">
+              A — Construção & serviços lar
+            </option>
+            <option value="B_RESTAURACAO_CAFES_PASTELARIAS">
+              B — Restauração & cafés
+            </option>
+            <option value="C_CABELEIREIROS_BARBEARIAS_ESTETICA">
+              C — Cabeleireiros & estética
+            </option>
+            <option value="D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO">
+              D — Oficinas & auto
+            </option>
+            <option value="E_MERCEARIAS_MERCADOS_PADARIAS">
+              E — Mercearias & mercados
+            </option>
+            <option value="F_LOJAS_ROUPA_CALCADO_DECORACAO">
+              F — Lojas de roupa & decoração
+            </option>
+            <option value="G_CLINICAS_SAUDE_WELLNESS">
+              G — Clínicas & wellness
+            </option>
+            <option value="H_ALOJAMENTO_LOCAL_HOTEIS">
+              H — Alojamento local & hotéis
+            </option>
+            <option value="I_ESCOLAS_CURSOS_CENTROS_ESTUDO">
+              I — Escolas & centros de estudo
+            </option>
+            <option value="J_PROFISSIONAIS_LIBERAIS_SERVICOS">
+              J — Profissionais liberais
+            </option>
+          </select>
+        </div>
+
         {/* botão Importar */}
         <button
           type="submit"
@@ -87,25 +149,34 @@ export default function ImportarPage() {
         </div>
       )}
 
-      {res && (
+      {summary && (
         <div className="mt-4 text-sm rounded-xl bg-white shadow p-4 space-y-1">
-          <div><strong>Total lido:</strong> {res.total}</div>
-          <div><strong>Inseridos:</strong> {res.inserted}</div>
-          <div><strong>Atualizados:</strong> {res.updated}</div>
-          <div><strong>Ignorados (duplicados):</strong> {res.skipped}</div>
-          <div><strong>Inválidos (sem email/telefone):</strong> {res.invalid}</div>
-          {Array.isArray(res.invalidRows) && res.invalidRows.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer">Ver linhas inválidas</summary>
-              <pre className="mt-2 whitespace-pre-wrap">{JSON.stringify(res.invalidRows.slice(0,50), null, 2)}</pre>
-            </details>
-          )}
+          <div>
+            <strong>Total lido:</strong> {summary.lidas}
+          </div>
+          <div>
+            <strong>Empresas (chaves únicas):</strong> {summary.empresas}
+          </div>
+          <div>
+            <strong>Inseridos:</strong> {summary.inseridos}
+          </div>
+          <div>
+            <strong>Atualizados:</strong> {summary.atualizados}
+          </div>
+          <div>
+            <strong>Ignorados (sem empresa ou lixo):</strong> {summary.ignorados}
+          </div>
         </div>
       )}
 
       <p className="text-sm text-slate-600 mt-3">
-        Headers esperados: <em>Company Name, First Name, Last Name, Title, Email, Work Direct Phone, Mobile Phone,
-        Corporate Phone, Industry, Keywords, Website, City</em>. O import faz dedup por email OU telefone.
+        Headers esperados:{" "}
+        <em>
+          Company Name, First Name, Last Name, Title, Email, Work Direct Phone,
+          Mobile Phone, Corporate Phone, Industry, Keywords, Website, City
+        </em>
+        . O import faz dedup por empresa (Company Name/Empresa) e escolhe a
+        melhor linha por título + contacto.
       </p>
     </div>
   );

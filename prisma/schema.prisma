@@ -21,6 +21,16 @@ enum LeadState {
   SKIP
 }
 
+model Sale {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation("ContactSales", fields: [contactId], references: [id])
+  userId    String
+  user      User     @relation("UserSales", fields: [userId], references: [id])
+  amount    Float?
+  createdAt DateTime @default(now())
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -32,9 +42,23 @@ model User {
   // relação que já tinhas (pendentes atribuídos)
   contacts Contact[] @relation("AssignedContacts")
 
-  // 👇 novos “lados opostos”
+  //   novos “lados opostos”
   sessions      CallSession[]  @relation("UserSessions")
   contactTimers ContactTimer[] @relation("UserContactTimers")
+  sales         Sale[]         @relation("UserSales")
+}
+
+enum SegmentKey {
+  A_CONSTRUCAO_SERVICOS_LAR
+  B_RESTAURACAO_CAFES_PASTELARIAS
+  C_CABELEIREIROS_BARBEARIAS_ESTETICA
+  D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO
+  E_MERCEARIAS_MERCADOS_PADARIAS
+  F_LOJAS_ROUPA_CALCADO_DECORACAO
+  G_CLINICAS_SAUDE_WELLNESS
+  H_ALOJAMENTO_LOCAL_HOTEIS
+  I_ESCOLAS_CURSOS_CENTROS_ESTUDO
+  J_PROFISSIONAIS_LIBERAIS_SERVICOS
 }
 
 model Contact {
@@ -48,10 +72,12 @@ model Contact {
   phoneWork   String?
   phoneMobile String?
   phoneCorp   String?
-  industry    String?
+  industry    String? // aqui podes pôr a "Category" do CSV (ex: Pastelaria)
   keywords    String?
   website     String?
   companyCity String?
+
+  segmentKey SegmentKey? // 👈 bucket A–J
 
   state       LeadState @default(NEW)
   callNote    String?
@@ -65,42 +91,39 @@ model Contact {
   assignedToId String?
   assignedTo   User?   @relation("AssignedContacts", fields: [assignedToId], references: [id])
 
-  // 👇 lado oposto que faltava
-  timers ContactTimer[] @relation("ContactTimers")
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // (opcional mas útil)
-  @@index([state])
-  @@index([reviveAt])
+  timers ContactTimer[] @relation("ContactTimers")
+
+  sales Sale[] @relation("ContactSales")
 }
 
 model CallSession {
   id          String    @id @default(cuid())
   userId      String
-  // 👇 dá nome à relação e aponta o lado oposto em User.sessions
+  //   dá nome à relação e aponta o lado oposto em User.sessions
   user        User      @relation("UserSessions", fields: [userId], references: [id])
   startedAt   DateTime  @default(now())
   endedAt     DateTime?
   durationSec Int?
 
-  // 👇 liga aos timers desta sessão
+  //   liga aos timers desta sessão
   contactTimes ContactTimer[] @relation("SessionContactTimers")
 }
 
 model ContactTimer {
   id String @id @default(cuid())
 
-  // 👇 relação (opcional) para a sessão e respetivo lado oposto
+  //   relação (opcional) para a sessão e respetivo lado oposto
   sessionId String?
   session   CallSession? @relation("SessionContactTimers", fields: [sessionId], references: [id])
 
-  // 👇 relação para o contacto e lado oposto em Contact.timers
+  //   relação para o contacto e lado oposto em Contact.timers
   contactId String
   contact   Contact @relation("ContactTimers", fields: [contactId], references: [id])
 
-  // 👇 relação para o utilizador e lado oposto em User.contactTimers
+  //   relação para o utilizador e lado oposto em User.contactTimers
   userId String
   user   User   @relation("UserContactTimers", fields: [userId], references: [id])
 

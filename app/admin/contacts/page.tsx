@@ -1,98 +1,194 @@
 // app/admin/contacts/page.tsx
 "use client";
-import { useEffect, useState } from "react";
 
-type Contact = {
-  id: string; firstName?: string|null; title?: string|null; lastName?: string|null; companyName: string;
-  email?: string|null; phoneWork?: string|null; phoneMobile?: string|null; state: string;
-  updatedAt: string; callNote?: string|null;
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+type SegmentKey =
+  | "A_CONSTRUCAO_SERVICOS_LAR"
+  | "B_RESTAURACAO_CAFES_PASTELARIAS"
+  | "C_CABELEIREIROS_BARBEARIAS_ESTETICA"
+  | "D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO"
+  | "E_MERCEARIAS_MERCADOS_PADARIAS"
+  | "F_LOJAS_ROUPA_CALCADO_DECORACAO"
+  | "G_CLINICAS_SAUDE_WELLNESS"
+  | "H_ALOJAMENTO_LOCAL_HOTEIS"
+  | "I_ESCOLAS_CURSOS_CENTROS_ESTUDO"
+  | "J_PROFISSIONAIS_LIBERAIS_SERVICOS";
+
+type SegmentSummary = {
+  total: number;
+  NEW: number;
+  NO_ANSWER: number;
+  CALL_LATER: number;
+  BOOKED: number;
+  REFUSED: number;
+  SKIP: number;
 };
 
-export default function AdminContactsPage() {
-  const [rows, setRows] = useState<Contact[]>([]);
-  const [total, setTotal] = useState(0);
-  const [state, setState] = useState("ALL");
-  const [q, setQ] = useState("");
-  const [sel, setSel] = useState<Record<string,boolean>>({});
+const SEGMENTS: { key: SegmentKey; code: string; label: string; description: string }[] = [
+  {
+    key: "A_CONSTRUCAO_SERVICOS_LAR",
+    code: "A",
+    label: "Construção & serviços lar",
+    description: "Caixilharia, estores, resguardos, obras em casa…",
+  },
+  {
+    key: "B_RESTAURACAO_CAFES_PASTELARIAS",
+    code: "B",
+    label: "Restauração, cafés & pastelarias",
+    description: "Restaurantes, snack-bares, cafés, pastelarias…",
+  },
+  {
+    key: "C_CABELEIREIROS_BARBEARIAS_ESTETICA",
+    code: "C",
+    label: "Cabeleireiros, barbearias & estética",
+    description: "Salões de beleza, barbearias, estética…",
+  },
+  {
+    key: "D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO",
+    code: "D",
+    label: "Oficinas & serviços auto",
+    description: "Oficinas, pneus, lavagem auto…",
+  },
+  {
+    key: "E_MERCEARIAS_MERCADOS_PADARIAS",
+    code: "E",
+    label: "Mercearias & mercados",
+    description: "Mercearias, minimercados, padarias…",
+  },
+  {
+    key: "F_LOJAS_ROUPA_CALCADO_DECORACAO",
+    code: "F",
+    label: "Lojas de roupa & decoração",
+    description: "Moda, calçado, decoração, mobiliário…",
+  },
+  {
+    key: "G_CLINICAS_SAUDE_WELLNESS",
+    code: "G",
+    label: "Clínicas, saúde & wellness",
+    description: "Clínicas, fisioterapia, spas, wellness…",
+  },
+  {
+    key: "H_ALOJAMENTO_LOCAL_HOTEIS",
+    code: "H",
+    label: "Alojamento local & hotéis",
+    description: "AL, hostels, hotéis, turismo rural…",
+  },
+  {
+    key: "I_ESCOLAS_CURSOS_CENTROS_ESTUDO",
+    code: "I",
+    label: "Escolas & centros de estudo",
+    description: "Escolas, formação, explicações, academias…",
+  },
+  {
+    key: "J_PROFISSIONAIS_LIBERAIS_SERVICOS",
+    code: "J",
+    label: "Profissionais liberais & serviços",
+    description: "Consultores, serviços especializados…",
+  },
+];
 
-  const load = async () => {
-    const r = await fetch(`/api/admin/contacts?state=${state}&q=${encodeURIComponent(q)}&take=100`);
-    const js = await r.json();
-    setRows(js.rows); setTotal(js.total); setSel({});
-  };
-  useEffect(() => { load(); }, [state]);
+export default function AdminContactsDashboard() {
+  const [summary, setSummary] = useState<Record<string, SegmentSummary>>({});
+  const [loading, setLoading] = useState(false);
 
-  const idsSel = Object.entries(sel).filter(([,v])=>v).map(([k])=>k);
-
-  const bulk = async (to: string) => {
-    if (!idsSel.length) return;
-    await fetch("/api/admin/contacts/bulk", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: idsSel, state: to })
-    });
-    await load();
-  };
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/contacts/summary");
+        const js = await res.json();
+        setSummary(js.summary || {});
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold mb-6">Contactos</h1>
+      <h1 className="text-2xl font-semibold mb-2 text-[#0e2a4a]">Contactos por segmento</h1>
+      <p className="text-sm text-slate-600 mb-6">
+        Visão global dos segmentos A-J. Cada caixa mostra o número de contactos por estado. Clica em{" "}
+        <strong>Expandir</strong> para ver a lista completa desse segmento, filtrada e ordenada pelos contactos mais
+        recentemente actualizados.
+      </p>
 
-      <div className="flex flex-wrap gap-3 items-center mb-4">
-        <select className="border rounded px-2 py-1" value={state} onChange={e=>setState(e.target.value)}>
-          {["ALL","NEW","NO_ANSWER","CALL_LATER","BOOKED","REFUSED"].map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <input
-          value={q} onChange={e=>setQ(e.target.value)}
-          placeholder="Procurar…" className="border rounded px-3 py-1"
-        />
-        <button onClick={load} className="rounded bg-black text-white px-3 py-1">Filtrar</button>
+      {loading && <div className="mb-4 text-sm text-slate-500">A carregar resumo…</div>}
 
-        <div className="ml-auto flex gap-2">
-          {["NEW","NO_ANSWER","CALL_LATER","BOOKED","REFUSED"].map(s => (
-            <button key={s} onClick={()=>bulk(s)} className="rounded bg-white shadow px-3 py-1 hover:bg-slate-50">
-              Mudar p/ {s}
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {SEGMENTS.map((seg) => {
+          const data = summary[seg.key] || {
+            total: 0,
+            NEW: 0,
+            NO_ANSWER: 0,
+            CALL_LATER: 0,
+            BOOKED: 0,
+            REFUSED: 0,
+            SKIP: 0,
+          };
+
+          return (
+            <div
+              key={seg.key}
+              className="rounded-2xl bg-white shadow-sm border border-slate-100 p-4 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0e2a4a] text-white text-xs font-semibold">
+                    {seg.code}
+                  </span>
+                  <h2 className="text-sm font-semibold text-[#0e2a4a]">{seg.label}</h2>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">{seg.description}</p>
+
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-slate-600">Total</span>
+                    <span className="font-semibold">{data.total}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
+                    <StateRow label="NEW" value={data.NEW} color="text-emerald-600" />
+                    <StateRow label="CALL_LATER" value={data.CALL_LATER} color="text-amber-600" />
+                    <StateRow label="BOOKED" value={data.BOOKED} color="text-sky-600" />
+                    <StateRow label="NO_ANSWER" value={data.NO_ANSWER} color="text-slate-600" />
+                    <StateRow label="REFUSED" value={data.REFUSED} color="text-red-600" />
+                    <StateRow label="SKIP" value={data.SKIP} color="text-slate-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <Link
+                  href={`/admin/contacts/${seg.key}`}
+                  className="inline-flex items-center justify-center rounded-md border border-[#0e2a4a]/30 px-3 py-1.5 text-xs font-medium text-[#0e2a4a] hover:bg-[#0e2a4a]/5 transition"
+                >
+                  Expandir
+                </Link>
+              </div>
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+}
 
-      <div className="rounded-xl overflow-hidden bg-white shadow">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-3 py-2"><input type="checkbox"
-                onChange={(e)=>setSel(Object.fromEntries(rows.map(r=>[r.id,e.target.checked])))} /></th>
-              <th className="text-left px-3 py-2">Empresa</th>
-              <th className="text-left px-3 py-2">Nome</th>
-              <th className="px-4 py-2">Título</th>
-              <th className="text-left px-3 py-2">Email</th>
-              <th className="text-left px-3 py-2">Estado</th>
-              <th className="text-left px-3 py-2">Notas</th>
-              <th className="text-left px-3 py-2">Última atualização</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.id} className="border-t">
-                <td className="px-3 py-2">
-                  <input type="checkbox" checked={!!sel[r.id]} onChange={(e)=>setSel(s=>({...s,[r.id]:e.target.checked}))}/>
-                </td>
-                <td className="px-3 py-2">{r.companyName}</td>
-                <td className="px-3 py-2">{[r.firstName,r.lastName].filter(Boolean).join(" ")}</td>
-                <td className="px-4 py-2">{r.title || "-"}</td>
-                <td className="px-3 py-2">{r.email ?? "-"}</td>
-                <td className="px-3 py-2">{r.state}</td>
-                <td className="px-3 py-2">{r.callNote ?? "-"}</td>
-                <td className="px-3 py-2">{new Date(r.updatedAt).toLocaleDateString("pt-PT")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="text-sm text-slate-600 mt-3">Total: {total}</div>
+function StateRow({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color?: string;
+}) {
+  return (
+    <div className="flex justify-between">
+      <span className={`uppercase tracking-wide ${color || "text-slate-600"}`}>{label}</span>
+      <span className="font-semibold">{value}</span>
     </div>
   );
 }

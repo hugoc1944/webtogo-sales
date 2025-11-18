@@ -18,8 +18,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const user = session?.user as any;
 
   return (
-    <div className="min-h-screen grid grid-cols-[220px_1fr]">
-      <aside className="relative text-white">
+    <div className="h-screen grid grid-cols-[220px_1fr]">
+      {/* Lateral fixa a 100vh */}
+      <aside className="relative h-full text-white">
         <Image src="/blueBG.png" alt="" fill className="object-cover" priority />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a2a6b]/90 to-[#04265a]/95" />
         <div className="relative p-6 h-full flex flex-col">
@@ -58,29 +59,58 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="relative min-h-screen overflow-hidden">{children}</main>
+      {/* Content: ocupa 100vh e é o único que scrolla */}
+      <main className="relative h-full overflow-y-auto bg-slate-50">
+        {children}
+      </main>
     </div>
   );
 }
 
 function HomeIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <path d="M3 11.5 12 4l9 7.5" /><path d="M5 10.5V20h14v-9.5" />
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      className="shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+    >
+      <path d="M3 11.5 12 4l9 7.5" />
+      <path d="M5 10.5V20h14v-9.5" />
     </svg>
   );
 }
 function CallIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.15 9.81 19.8 19.8 0 0 1 .08 1.18 2 2 0 0 1 2.06 0h2a2 2 0 0 1 2 1.72c.12.9.32 1.78.6 2.63a2 2 0 0 1-.45 2.11L5.2 7.67a16 16 0 0 0 6.13 6.13l1.21-1.01a2 2 0 0 1 2.11-.45c.85.28 1.73.48 2.63.6A2 2 0 0 1 22 16.92Z"/>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      className="shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+    >
+      <path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.15 9.81 19.8 19.8 0 0 1 .08 1.18 2 2 0 0 1 2.06 0h2a2 2 0 0 1 2 1.72c.12.9.32 1.78.6 2.63a2 2 0 0 1-.45 2.11L5.2 7.67a16 16 0 0 0 6.13 6.13l1.21-1.01a2 2 0 0 1 2.11-.45c.85.28 1.73.48 2.63.6A2 2 0 0 1 22 16.92Z" />
     </svg>
   );
 }
 function ClockIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
-      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" />
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      className="shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
     </svg>
   );
 }
