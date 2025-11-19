@@ -12,15 +12,39 @@ type Contact = {
   title?: string | null;
   companyName: string;
   email?: string | null;
-  industry?: string | null;   // Category
+  industry?: string | null; // Category
   keywords?: string | null;
   phoneWork?: string | null;
   phoneMobile?: string | null;
   phoneCorp?: string | null;
-  website?: string | null;    // Social / Website
+  website?: string | null; // Social / Website
   companyCity?: string | null;
   segmentKey?: string | null; // A–J
 };
+
+// segmentos principais para foco de sessão
+const SEGMENT_CHOICES: {
+  key: string;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: "B_RESTAURACAO_CAFES_PASTELARIAS",
+    label: "Restaurantes & Cafés",
+    description:
+      "Negócios focados em refeições, cafés, pastelarias e snack-bars.",
+  },
+  {
+    key: "C_CABELEIREIROS_BARBEARIAS_ESTETICA",
+    label: "Cabeleireiros & Estética",
+    description: "Salões, barbearias, estética e beleza em geral.",
+  },
+  {
+    key: "D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO",
+    label: "Oficinas & Serviços Auto",
+    description: "Oficinas, pneus, mecânica e serviços ligados ao automóvel.",
+  },
+];
 
 export default function NovaSessao() {
   const router = useRouter();
@@ -28,12 +52,17 @@ export default function NovaSessao() {
   const user = session?.user as any;
 
   const [phase, setPhase] = useState<"idle" | "starting" | "active">("idle");
+  const [selectedSegmentKey, setSelectedSegmentKey] = useState<string | null>(
+    null
+  );
+  const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null);
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [since, setSince] = useState<number>(0);
   const [contact, setContact] = useState<Contact | null>(null);
   const contactStartRef = useRef<number | null>(null);
 
-  // tick da sessão
+  // tick da sessão (cronómetro global)
   useEffect(() => {
     if (phase !== "active") return;
     const t = setInterval(() => setSince((s) => s + 1), 1000);
@@ -53,7 +82,7 @@ export default function NovaSessao() {
     new Date().toLocaleString("pt-PT", {
       dateStyle: "short",
       timeStyle: "short",
-    }),
+    })
   );
   useEffect(() => {
     const i = setInterval(() => {
@@ -61,37 +90,35 @@ export default function NovaSessao() {
         new Date().toLocaleString("pt-PT", {
           dateStyle: "short",
           timeStyle: "short",
-        }),
+        })
       );
     }, 30_000);
     return () => clearInterval(i);
   }, []);
 
-  // começar sessão
-  const startSession = async () => {
+  // começar sessão (já com segmento escolhido)
+  const startSession = async (segmentKey: string) => {
     setPhase("starting");
-    const res = await fetch("/api/sessions/start", { method: "POST" });
+    setActiveSegmentKey(segmentKey);
+
+    const res = await fetch("/api/sessions/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segmentKey }),
+    });
+
     const js = await res.json();
     setSessionId(js.sessionId as string);
 
     // “A iniciar”: 2s
     setTimeout(async () => {
       setPhase("active");
-      await loadNext();
+      await loadNext(segmentKey);
     }, 2000);
   };
 
-  // carrega próximo NEW
-  const loadNext = async () => {
-    const res = await fetch("/api/contacts/new-session", { method: "POST" });
-    const js = await res.json();
-    setContact(js.contact);
-    contactStartRef.current = 0; // reset
-    startContactTimer();
-  };
-
   // cronómetro por contacto
-  const [contactSeconds, setContactSeconds] = useState(0);
+  const [, setContactSeconds] = useState(0);
   const startContactTimer = () => {
     setContactSeconds(0);
     contactStartRef.current = Date.now() / 1000;
@@ -102,6 +129,22 @@ export default function NovaSessao() {
     const dur = Math.max(0, Math.round(end - contactStartRef.current));
     contactStartRef.current = null;
     return dur;
+  };
+
+  // carrega próximo NEW desse segmento
+  const loadNext = async (segmentOverride?: string) => {
+    const seg = segmentOverride ?? activeSegmentKey;
+    if (!seg) return;
+
+    const res = await fetch("/api/contacts/new-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segmentKey: seg }),
+    });
+
+    const js = await res.json();
+    setContact(js.contact);
+    startContactTimer();
   };
 
   // terminar sessão
@@ -126,9 +169,13 @@ export default function NovaSessao() {
     .slice(0, 2);
   const [loadingNext, setLoadingNext] = useState(false);
 
+  // 👇 notas rápidas por segmento (apenas na fase ativa)
+  const segmentTips =
+    phase === "active" ? getSegmentTips(activeSegmentKey, contact) : [];
+
   const doDisposition = async (
     action: "NO_ANSWER" | "CALL_LATER" | "BOOKED" | "REFUSED",
-    extra?: any,
+    extra?: any
   ) => {
     if (!contact) return;
     const durationSec = stopContactTimer();
@@ -160,49 +207,117 @@ export default function NovaSessao() {
     }, 500);
   };
 
-  // UI – fases
+  /* ---------- UI: fase de escolha de segmento ---------- */
+
   if (phase === "idle") {
     return (
       <Bg>
-        <div className="flex flex-col h-full items-center justify-center text-white text-center gap-3 animate-fadeIn">
-          <h1 className="text-4xl font-semibold">Nova Sessão</h1>
-          <p className="mt-4 text-lg">
-            Comerciante:{" "}
+        <div className="flex flex-col h-full items-center justify-center text-white text-center gap-4 animate-fadeIn">
+          <h1 className="text-4xl font-semibold">Nova sessão</h1>
+
+          <p className="mt-2 text-lg">
+            Comercial:{" "}
             <span className="font-medium">{user?.name ?? "-"}</span>
           </p>
-          <p className="mt-1">Data: {nowStr}</p>
+          <p className="text-sm text-white/80">Data: {nowStr}</p>
+
+          <p className="mt-4 max-w-xl text-sm text-white/80">
+            Para esta sessão, escolhe um tipo de negócio para te concentrares.
+            Só vais ver contactos desse segmento até terminares a sessão.
+          </p>
+
+          <div className="mt-4 grid gap-3 w-full max-w-3xl md:grid-cols-3">
+            {SEGMENT_CHOICES.map((opt, idx) => {
+              const isSelected = selectedSegmentKey === opt.key;
+              const isRecommended = idx === 0; // primeiro = recomendado agora
+
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSelectedSegmentKey(opt.key)}
+                  className={[
+                    "rounded-xl border px-4 py-3 text-left text-sm transition-all",
+                    "bg-black/35 border-white/15 hover:border-white/35 hover:bg-black/45",
+                    isSelected &&
+                      "border-emerald-300/80 bg-emerald-500/20 shadow-lg",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[15px]">
+                      {opt.label}
+                    </span>
+                    {isRecommended && (
+                      <span className="inline-flex items-center rounded-full border border-emerald-300/80 bg-emerald-500/20 px-2 py-[2px] text-[10px] uppercase tracking-wide">
+                        Recomendado agora
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-white/80">
+                    {opt.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
           <button
-            onClick={startSession}
-            className="mt-8 rounded-md bg-black/70 px-8 py-3 transition-colors duration-200 hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white/50"
+            onClick={() => {
+              if (!selectedSegmentKey) {
+                alert("Escolhe um segmento para começar a sessão.");
+                return;
+              }
+              startSession(selectedSegmentKey);
+            }}
+            disabled={!selectedSegmentKey}
+            className="mt-6 rounded-md bg-black/80 px-8 py-3 text-sm font-medium transition-colors duration-200 hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Começar
+            Começar sessão
           </button>
         </div>
       </Bg>
     );
   }
 
+  /* ---------- UI: fase de arranque ---------- */
+
   if (phase === "starting") {
     return (
       <Bg>
-        <div className="h-full flex items-center justify-center">
-          <p className="text-white text-xl font-medium">A iniciar…</p>
+        <div className="h-full flex flex-col items-center justify-center text-white gap-2">
+          <p className="text-xl font-medium">A iniciar…</p>
+          {activeSegmentKey && (
+            <p className="text-sm text-white/80">
+              Segmento desta sessão:{" "}
+              <span className="font-semibold">
+                {segmentLabel(activeSegmentKey)}
+              </span>
+            </p>
+          )}
         </div>
       </Bg>
     );
   }
 
-  // phase === active
+  /* ---------- UI: fase ativa ---------- */
+
   return (
     <Bg>
       {/* barras topo */}
-      <div className="absolute top-3 left-4 text-white/90">
-        <button
-          onClick={endSession}
-          className="underline underline-offset-4"
-        >
+      <div className="absolute top-3 left-4 text-white/90 flex flex-col gap-1">
+        <button onClick={endSession} className="underline underline-offset-4">
           Terminar sessão
         </button>
+        {activeSegmentKey && (
+          <span className="text-xs text-white/75">
+            Segmento desta sessão:{" "}
+            <span className="font-semibold">
+              {segmentLabel(activeSegmentKey)}
+            </span>
+          </span>
+        )}
       </div>
       <div className="absolute top-3 right-4 text-white/90 tabular-nums">
         {fmt(since)}
@@ -211,7 +326,9 @@ export default function NovaSessao() {
       {/* contacto */}
       <div className="h-full flex items-center justify-center">
         {!contact ? (
-          <p className="text-white/90">Sem mais contactos em NEW.</p>
+          <p className="text-white/90">
+            Sem mais contactos em NEW para este segmento.
+          </p>
         ) : (
           <div className="text-white text-center max-w-3xl space-y-4">
             <h2 className="text-3xl font-extrabold tracking-wide">
@@ -221,9 +338,7 @@ export default function NovaSessao() {
             {/* Pessoa + título + email */}
             <div className="space-y-1">
               <p className="text-lg">
-                {[contact.firstName, contact.lastName]
-                  .filter(Boolean)
-                  .join(" ")}
+                {[contact.firstName, contact.lastName].filter(Boolean).join(" ")}
                 {contact.firstName || contact.lastName ? " – " : ""}
                 <span className="opacity-90">{contact.title || ""}</span>
               </p>
@@ -242,7 +357,29 @@ export default function NovaSessao() {
                 <span className="font-medium">Categoria:</span>{" "}
                 {contact.industry || "-"}
               </span>
+              {activeSegmentKey && (
+                <span>
+                  <span className="font-medium">Segmento:</span>{" "}
+                  {segmentLabel(activeSegmentKey)}
+                </span>
+              )}
             </div>
+
+            {/* 🔹 Notas rápidas por segmento (discretas) */}
+            {segmentTips.length > 0 && (
+              <div className="mt-3 text-left text-sm flex justify-center">
+                <div className="inline-block rounded-lg bg-black/35 border border-white/15 px-3 py-2 max-w-xl">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60 mb-1">
+                    Lembretes para este segmento
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-white/85">
+                    {segmentTips.map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
 
             {/* botões de contacto primário */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -286,7 +423,7 @@ export default function NovaSessao() {
               {/* Pesquisa Google com cidade (sem CP) */}
               <a
                 href={`https://www.google.com/search?q=${encodeURIComponent(
-                  `${contact.companyName} ${extractCity(contact.companyCity)}`,
+                  `${contact.companyName} ${extractCity(contact.companyCity)}`
                 )}`}
                 target="_blank"
                 className="rounded-md bg-black/70 px-5 py-3 text-sm hover:bg-black/80 transition"
@@ -295,7 +432,7 @@ export default function NovaSessao() {
               </a>
             </div>
 
-            {/* Agendar + Pending */}
+                        {/* Agendar + Pending */}
             <div className="mt-6 flex items-center justify-center gap-4">
               <ScheduleModal
                 calendlyUrl={
@@ -322,7 +459,7 @@ export default function NovaSessao() {
                 onClick={() => {
                   if (
                     confirm(
-                      "Tens a certeza que queres marcar como Recusado?",
+                      "Tens a certeza que queres marcar como Recusado?"
                     )
                   ) {
                     doDisposition("REFUSED");
@@ -338,7 +475,8 @@ export default function NovaSessao() {
                   if (
                     confirm("Queres mesmo fazer Skip deste contacto?")
                   ) {
-                    doDisposition("NO_ANSWER", { skip: true }); // trata como SKIP no backend
+                    // backend já trata `skip: true` como SKIP
+                    doDisposition("NO_ANSWER", { skip: true });
                   }
                 }}
               >
@@ -363,6 +501,26 @@ export default function NovaSessao() {
 
 /* ---------- helpers ---------- */
 
+function segmentLabel(key?: string | null): string {
+  if (!key) return "-";
+  const map: Record<string, string> = {
+    A_CONSTRUCAO_SERVICOS_LAR: "Construção & Serviços de Lar",
+    B_RESTAURACAO_CAFES_PASTELARIAS: "Restaurantes & Cafés",
+    C_CABELEIREIROS_BARBEARIAS_ESTETICA: "Cabeleireiros & Estética",
+    D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO: "Oficinas & Serviços Auto",
+    E_MERCEARIAS_MERCADOS_PADARIAS: "Mercearias & Padarias",
+    F_LOJAS_ROUPA_CALCADO_DECORACAO:
+      "Lojas de Roupa, Calçado & Decoração",
+    G_CLINICAS_SAUDE_WELLNESS: "Clínicas, Saúde & Wellness",
+    H_ALOJAMENTO_LOCAL_HOTEIS: "Alojamento Local & Hotéis",
+    I_ESCOLAS_CURSOS_CENTROS_ESTUDO:
+      "Escolas, Cursos & Centros de Estudo",
+    J_PROFISSIONAIS_LIBERAIS_SERVICOS:
+      "Profissionais Liberais & Serviços",
+  };
+  return map[key] ?? key;
+}
+
 function extractCity(companyCity?: string | null): string {
   if (!companyCity) return "";
   // ex: "3800-209 Aveiro" → "Aveiro"
@@ -372,6 +530,43 @@ function extractCity(companyCity?: string | null): string {
     return parts.slice(1).join(" ");
   }
   return companyCity;
+}
+
+// normaliza para comparar "Aveiro", "AVÉIRO", etc.
+function normalizeString(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// 🔹 devolve notas rápidas por segmento + contexto (cidade, etc.)
+function getSegmentTips(
+  segmentKey: string | null | undefined,
+  contact: Contact | null
+): string[] {
+  const tips: string[] = [];
+  if (!segmentKey || !contact) return tips;
+
+  if (segmentKey === "B_RESTAURACAO_CAFES_PASTELARIAS") {
+    tips.push(
+      "Reforça que incluímos uma sessão fotográfica profissional do espaço, pratos e equipa."
+    );
+
+    const city = extractCity(contact.companyCity).trim();
+    if (city) {
+      const normCity = normalizeString(city);
+      if (normCity.includes("aveiro")) {
+        tips.push(
+          "Se fizer sentido, menciona que já fizemos vários projetos para restaurantes em Aveiro, incluindo o Alicarius."
+        );
+      }
+    }
+  }
+
+  // outros segmentos podem ser adicionados aqui no futuro
+
+  return tips;
 }
 
 function Bg({ children }: { children: React.ReactNode }) {
@@ -385,10 +580,9 @@ function Bg({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
 function PendingModal({
   onNoAnswer,
-  onCallLater,
+  onCallLater
 }: {
   onNoAnswer: () => void;
   onCallLater: (note: string) => void;
@@ -458,7 +652,7 @@ function PendingModal({
 
 function ScheduleModal({
   onConfirmBooked,
-  calendlyUrl,
+  calendlyUrl
 }: {
   onConfirmBooked: (note: string) => Promise<void> | void;
   calendlyUrl: string;

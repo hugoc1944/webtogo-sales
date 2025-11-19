@@ -88,7 +88,7 @@ export default async function AssociateHome() {
   const monthStart = startOfMonth(now);
 
   // Métricas principais do próprio comercial
-  const [
+ const [
     contactsToday,
     contactsWeek,
     contactsMonth,
@@ -104,27 +104,55 @@ export default async function AssociateHome() {
     monthSales,
     associates,
   ] = await Promise.all([
+    // ✅ Contactos trabalhados HOJE = BOOKED + CALL_LATER com nota
     prisma.contact.count({
       where: {
         assignedToId: userId,
         lastCalledAt: { gte: dayStart },
-        state: { notIn: ["NEW", "NO_ANSWER"] },
+        OR: [
+          { state: "BOOKED" },
+          {
+            state: "CALL_LATER",
+            callNote: { not: null },
+          },
+          { state: "REFUSED" }, // 👈 agora conta como contacto trabalhado
+        ],
       },
     }),
+
+    // ✅ Contactos trabalhados ESTA SEMANA
     prisma.contact.count({
       where: {
         assignedToId: userId,
         lastCalledAt: { gte: weekStart },
-        state: { notIn: ["NEW", "NO_ANSWER"] },
+        OR: [
+          { state: "BOOKED" },
+          {
+            state: "CALL_LATER",
+            callNote: { not: null },
+            NOT: { callNote: "" },
+          },
+        ],
       },
     }),
+
+    // ✅ Contactos trabalhados ESTE MÊS
     prisma.contact.count({
       where: {
         assignedToId: userId,
         lastCalledAt: { gte: monthStart },
-        state: { notIn: ["NEW", "NO_ANSWER"] },
+        OR: [
+          { state: "BOOKED" },
+          {
+            state: "CALL_LATER",
+            callNote: { not: null },
+            NOT: { callNote: "" },
+          },
+        ],
       },
     }),
+
+    // (🟩 estes ficam exatamente como já tens)
     prisma.contact.count({
       where: {
         assignedToId: userId,
