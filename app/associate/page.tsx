@@ -366,9 +366,7 @@ export default async function AssociateHome() {
             </div>
 
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              {levelInfo.description} O objetivo é dar clareza ao progresso de{" "}
-              <span className="font-medium">{firstName}</span> e preparar o
-              caminho para objetivos e desafios seguintes.
+              {levelInfo.description}
             </p>
           </div>
 
