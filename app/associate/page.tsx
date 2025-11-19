@@ -381,8 +381,7 @@ export default async function AssociateHome() {
                 </h2>
                 <p className="text-sm text-slate-600">
                   Comparação entre com o parceiro
-                  de performance associado este mês. O bónus mensal vai para quem
-                  tiver uma melhor performance no final do mês.
+                  de performance associado este mês. Bónus mensal atribuído à melhor performance.
                 </p>
               </div>
             </div>
