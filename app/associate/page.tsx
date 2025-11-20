@@ -65,7 +65,7 @@ function computeLevel(totalSales: number) {
 }
 
 const DAILY_CONTACT_GOAL = 60;
-const DAILY_BOOKING_GOAL = 2;
+const DAILY_BOOKING_GOAL = 4;
 
 const WEEKLY_CONTACT_GOAL = 300;
 const WEEKLY_BOOKING_GOAL = 10;
