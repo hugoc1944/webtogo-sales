@@ -5,33 +5,76 @@ import bcrypt from "bcrypt";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
+
   providers: [
     Credentials({
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(creds) {
         if (!creds?.email || !creds.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: creds.email }});
+
+        const user = await prisma.user.findUnique({
+          where: { email: creds.email },
+        });
+
         if (!user) return null;
+
         const ok = await bcrypt.compare(creds.password, user.passwordHash);
         if (!ok) return null;
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
-      }
-    })
+
+        // VERY IMPORTANT: return role from DB!
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role, // "ADMIN" | "MANAGER" | "ASSOCIATE"
+        };
+      },
+    }),
   ],
+
   callbacks: {
+    /**
+     * Runs every time a JWT is created or updated
+     */
     async jwt({ token, user }) {
-      if (user) token.role = (user as any).role;
+      // When user logs in
+      if (user) {
+        token.role = (user as any).role;
+        token.sub = (user as any).id.toString();
+      }
+
+      // On each request refresh the role from DB (prevents stale tokens)
+      if (token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub as string },
+          select: { role: true },
+        });
+
+        if (dbUser) {
+          token.role = dbUser.role;
+        }
+      }
+
       return token;
     },
+
+    /**
+     * Runs every time client fetches /api/auth/session
+     */
     async session({ session, token }) {
-      (session.user as any).role = token.role;
-      (session.user as any).id = token.sub;
+      if (session.user) {
+        (session.user as any).id = token.sub;
+        (session.user as any).role = token.role; // accessible on frontend!
+      }
       return session;
-    }
+    },
   },
-  pages: { signIn: "/login" }
+
+  pages: {
+    signIn: "/login",
+  },
 };

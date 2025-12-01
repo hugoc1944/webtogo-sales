@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getViewerRole } from "@/lib/roles";
 
 function formatMinutesFromSeconds(sec: number) {
   const m = Math.floor(sec / 60);
@@ -18,8 +19,11 @@ export default async function Comerciais() {
   const session: any = await getServerSession(authOptions);
   const userSession = session?.user as any;
 
-  if (!session || userSession.role !== "ADMIN") redirect("/login");
-
+  if (!session || !["ADMIN", "MANAGER"].includes(userSession.role)) {
+    redirect("/login");
+  }
+  const viewerRole = userSession.role;
+  
   const now = new Date();
   const since7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -29,46 +33,59 @@ export default async function Comerciais() {
     select: { id: true, name: true, email: true },
   });
 
-  const [sessions7, timers7, contactsWorked, bookings7, salesMonth, pendentes] =
-    await Promise.all([
-      prisma.callSession.findMany({
-        where: { startedAt: { gte: since7 } },
-        select: { userId: true, durationSec: true },
-      }),
-      prisma.contactTimer.findMany({
-        where: { startedAt: { gte: since7 } },
-        select: { userId: true, durationSec: true },
-      }),
-      prisma.contact.groupBy({
-        by: ["assignedToId"],
-        where: {
-          assignedToId: { not: null },
-          lastCalledAt: { gte: since7 },
-          state: { notIn: ["NEW", "NO_ANSWER"] },
-        },
-        _count: { _all: true },
-      }),
-      prisma.contact.groupBy({
-        by: ["assignedToId"],
-        where: {
-          assignedToId: { not: null },
-          lastCalledAt: { gte: since7 },
-          state: "BOOKED",
-        },
-        _count: { _all: true },
-      }),
-      prisma.sale.groupBy({
-        by: ["userId"],
-        where: { createdAt: { gte: monthStart } },
-        _count: { _all: true },
-        _sum: { amount: true },
-      }),
-      prisma.contact.groupBy({
-        by: ["assignedToId"],
-        where: { state: "CALL_LATER", assignedToId: { not: null } },
-        _count: { _all: true },
-      }),
-    ]);
+  // For ADMIN: include revenue sums
+  // For MANAGER: return "safe" structure with { count: X, sum: null }
+  const salesMonthPromise =
+    viewerRole === "ADMIN"
+      ? prisma.sale.groupBy({
+          by: ["userId"],
+          where: { createdAt: { gte: monthStart } },
+          _count: { _all: true },
+          _sum: { amount: true },
+        })
+      : Promise.resolve([] as any[]); // empty result for managers
+
+  const [
+    sessions7,
+    timers7,
+    contactsWorked,
+    bookings7,
+    salesMonth,
+    pendentes
+  ] = await Promise.all([
+    prisma.callSession.findMany({
+      where: { startedAt: { gte: since7 } },
+      select: { userId: true, durationSec: true },
+    }),
+    prisma.contactTimer.findMany({
+      where: { startedAt: { gte: since7 } },
+      select: { userId: true, durationSec: true },
+    }),
+    prisma.contact.groupBy({
+      by: ["assignedToId"],
+      where: {
+        assignedToId: { not: null },
+        lastCalledAt: { gte: since7 },
+        state: { notIn: ["NEW", "NO_ANSWER"] },
+      },
+      _count: { _all: true },
+    }),
+    prisma.contact.groupBy({
+      by: ["assignedToId"],
+      where: {
+        assignedToId: { not: null },
+        lastCalledAt: { gte: since7 },
+        state: "BOOKED",
+      },
+      _count: { _all: true },
+    }),
+    salesMonthPromise,
+    prisma.contact.groupBy({
+      by: ["assignedToId"],
+      where: { state: "CALL_LATER", assignedToId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
 
   const sessionsMap = new Map<
     string,
@@ -134,7 +151,9 @@ export default async function Comerciais() {
                 <th className="px-4 py-3">Contactos trabalhados (7d)</th>
                 <th className="px-4 py-3">Bookings (7d)</th>
                 <th className="px-4 py-3">Vendas mês</th>
-                <th className="px-4 py-3">Receita mês (€)</th>
+                {viewerRole === "ADMIN" && (
+                  <th className="px-4 py-3">Receita mês (€)</th>
+                )}                
                 <th className="px-4 py-3">Pendentes</th>
                 <th className="px-4 py-3 text-right">Detalhes</th>
               </tr>
@@ -187,9 +206,11 @@ export default async function Comerciais() {
                       )}
                     </td>
                     <td className="px-4 py-3">{sales.count}</td>
-                    <td className="px-4 py-3">
-                      {sales.sum != null ? sales.sum.toFixed(2) : "–"}
-                    </td>
+                    {viewerRole === "ADMIN" ? (
+                      <td className="px-4 py-3">
+                        {sales.sum != null ? sales.sum.toFixed(2) : "–"}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3">{pend}</td>
                     <td className="px-4 py-3 text-right">
                       <Link

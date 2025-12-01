@@ -35,7 +35,6 @@ function formatMinutesFromSeconds(sec: number | null | undefined) {
   return `${mm}m ${s.toString().padStart(2, "0")}s`;
 }
 
-// 🔴 NOTE: params is now a Promise in Next 15
 type PageProps = {
   params: Promise<{ userId: string }>;
 };
@@ -47,8 +46,8 @@ export default async function ComercialDetail({ params }: PageProps) {
   const session: any = await getServerSession(authOptions);
   const userSession = session?.user as any;
 
-  if (!session || userSession.role !== "ADMIN") redirect("/login");
-
+  if (!session || !["ADMIN", "MANAGER"].includes(userSession.role)) redirect("/login");
+  const viewerRole = userSession.role as string;
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -349,8 +348,13 @@ export default async function ComercialDetail({ params }: PageProps) {
                   <th className="px-4 py-3">Cidade</th>
                   <th className="px-4 py-3">Segmento</th>
                   <th className="px-4 py-3">Última chamada</th>
-                  <th className="px-4 py-3">Venda (€)</th>
-                  <th className="px-4 py-3 text-right">Ação</th>
+                  {viewerRole === "ADMIN" && (
+                    <th className="px-4 py-3">Venda (€)</th>
+                  )}
+
+                  {viewerRole === "ADMIN" && (
+                    <th className="px-4 py-3 text-right">Ação</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -376,18 +380,21 @@ export default async function ComercialDetail({ params }: PageProps) {
                             )
                           : "-"}
                       </td>
-                      <td className="px-4 py-3">
-                        {sale?.amount != null
-                          ? sale.amount.toFixed(2)
-                          : "–"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <SaleButton
-                          contactId={c.id}
-                          userId={user.id}
-                          initialAmount={sale?.amount ?? null}
-                        />
-                      </td>
+                      {viewerRole === "ADMIN" && (
+                        <td className="px-4 py-3">
+                          {sale?.amount != null ? sale.amount.toFixed(2) : "–"}
+                        </td>
+                      )}
+
+                      {viewerRole === "ADMIN" && (
+                        <td className="px-4 py-3 text-right">
+                          <SaleButton
+                            contactId={c.id}
+                            userId={user.id}
+                            initialAmount={sale?.amount ?? null}
+                          />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

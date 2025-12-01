@@ -5,21 +5,29 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import clsx from "clsx";
-
-const items = [
-  { href: "/associate", label: "Início", icon: HomeIcon },
-  { href: "/associate/nova-sessao", label: "Nova sessão", icon: CallIcon },
-  { href: "/associate/pendentes", label: "Pendentes", icon: ClockIcon },
-];
+import { JSX } from "react";
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const user = session?.user as any;
+  const role = user?.role as string | undefined;
+
+  // items base (for Associates)
+  const items: { href: string; label: string; Icon: () => JSX.Element }[] = [
+    { href: "/associate", label: "Início", Icon: HomeIcon },
+    { href: "/associate/nova-sessao", label: "Nova sessão", Icon: CallIcon },
+    { href: "/associate/pendentes", label: "Pendentes", Icon: ClockIcon },
+  ];
+
+  // Show admin-like items also for MANAGER (but not super-admin-only links)
+  if (role === "ADMIN" || role === "MANAGER") {
+    // insert the Comerciais link after Início
+    items.splice(1, 0, { href: "/admin/comerciais", label: "Comerciais", Icon: UsersIcon });
+  }
 
   return (
     <div className="h-screen grid grid-cols-[220px_1fr]">
-      {/* Lateral fixa a 100vh */}
       <aside className="relative h-full text-white">
         <Image src="/blueBG.png" alt="" fill className="object-cover" priority />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a2a6b]/90 to-[#04265a]/95" />
@@ -29,7 +37,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="space-y-3">
-            {items.map(({ href, label, icon: Icon }) => (
+            {items.map(({ href, label, Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -59,7 +67,6 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Content: ocupa 100vh e é o único que scrolla */}
       <main className="relative h-full overflow-y-auto bg-slate-50">
         {children}
       </main>
@@ -67,17 +74,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ícones (mantive os teus pequenos ícones) */
 function HomeIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      className="shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
       <path d="M3 11.5 12 4l9 7.5" />
       <path d="M5 10.5V20h14v-9.5" />
     </svg>
@@ -85,32 +85,25 @@ function HomeIcon() {
 }
 function CallIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      className="shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
       <path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.15 9.81 19.8 19.8 0 0 1 .08 1.18 2 2 0 0 1 2.06 0h2a2 2 0 0 1 2 1.72c.12.9.32 1.78.6 2.63a2 2 0 0 1-.45 2.11L5.2 7.67a16 16 0 0 0 6.13 6.13l1.21-1.01a2 2 0 0 1 2.11-.45c.85.28 1.73.48 2.63.6A2 2 0 0 1 22 16.92Z" />
     </svg>
   );
 }
 function ClockIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      className="shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 3" />
+    </svg>
+  );
+}
+function UsersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
     </svg>
   );
 }
