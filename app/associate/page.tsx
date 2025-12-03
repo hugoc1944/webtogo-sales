@@ -13,9 +13,8 @@ function startOfDay(d: Date) {
 }
 
 function startOfWeek(d: Date) {
-  // semana começa à segunda
   const x = startOfDay(d);
-  const day = x.getDay(); // 0=Dom,1=Seg,...
+  const day = x.getDay(); // 0=Sun,1=Mon...
   const diff = (day === 0 ? -6 : 1) - day;
   x.setDate(x.getDate() + diff);
   return x;
@@ -71,13 +70,18 @@ const MONTHLY_SALES_GOAL = 20;
 
 /* -------------------- KPI CONSTANTS -------------------- */
 
-// Each rep has different schedule => different daily targets (kept for bookings goals)
+// Each rep: daily target helpers (kept for bookings goals)
 const HOURS_BASE = 5;
 const CONTACTS_PER_HOUR = 1.0;
 const BOOKINGS_PER_HOUR = 0.25;
 
-// Good conversations goal (user requested single value)
+// Main KPI: good conversations goal
 const GOOD_CONVERSATIONS_GOAL = 8;
+
+// Good conversation length threshold (in seconds)
+// User requested main KPI = "Conversas qualificadas (>= 1 minute)".
+// Change here if you want 120s instead: set to 120
+const GOOD_CONVERSATION_SECONDS = 60;
 
 /* ------- Weekly & Monthly goals helpers ------- */
 
@@ -87,19 +91,13 @@ function getManagerHours(date: Date) {
   return 8;
 }
 
+// Booking goal is always 2 per day, fixed
+const DAILY_BOOKINGS_GOAL = 2;
+
 function getDailyGoalsForAssociate(userRole: string, date: Date) {
-  if (userRole === "MANAGER") {
-    const hours = getManagerHours(date);
-    return {
-      dailyContacts: Math.round(hours * CONTACTS_PER_HOUR),
-      dailyBookings: +(hours * BOOKINGS_PER_HOUR).toFixed(2),
-    };
-  } else {
-    return {
-      dailyContacts: Math.round(HOURS_BASE * CONTACTS_PER_HOUR),
-      dailyBookings: +(HOURS_BASE * BOOKINGS_PER_HOUR).toFixed(2),
-    };
-  }
+  return {
+    dailyBookings: DAILY_BOOKINGS_GOAL,
+  };
 }
 
 function getWeeklyGoal(userRole: string, now: Date) {
@@ -107,41 +105,47 @@ function getWeeklyGoal(userRole: string, now: Date) {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
-  let contacts = 0;
-  let bookings = 0;
+  let bookingGoal = 0;
 
   for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
     const dow = d.getDay();
+
+    // Tuesday–Friday only
     if (![2, 3, 4, 5].includes(dow)) continue;
+
+    // Skip holidays if needed
     if (d.getMonth() === 11 && d.getDate() === 25) continue;
-    const g = getDailyGoalsForAssociate(userRole, d);
-    contacts += g.dailyContacts;
-    bookings += g.dailyBookings;
+
+    bookingGoal += 2; // 2 bookings per working day
   }
 
-  // bookings is fractional (sum of dailyBookings) — round up for weekly target
-  return { weeklyContacts: contacts, weeklyBookings: Math.ceil(bookings) };
+  return {
+    weeklyBookings: bookingGoal,
+  };
 }
 
 function getMonthlyGoal(userRole: string, now: Date) {
   const year = now.getFullYear();
   const month = now.getMonth();
+
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 0);
 
-  let contacts = 0;
-  let bookings = 0;
+  let bookingGoal = 0;
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dow = d.getDay();
+
     if (![2, 3, 4, 5].includes(dow)) continue;
+
     if (d.getMonth() === 11 && d.getDate() === 25) continue;
-    const g = getDailyGoalsForAssociate(userRole, d);
-    contacts += g.dailyContacts;
-    bookings += g.dailyBookings;
+
+    bookingGoal += 2;
   }
 
-  return { monthlyContacts: contacts, monthlyBookings: bookings };
+  return {
+    monthlyBookings: bookingGoal,
+  };
 }
 
 /* -------------------- Page (main) -------------------- */
@@ -213,15 +217,15 @@ export default async function AssociateHome() {
       where: { userId, endedAt: { gte: weekStart } },
     }),
 
-    // GOOD CONVERSATIONS (>= 60s)
+    // GOOD CONVERSATIONS (>= GOOD_CONVERSATION_SECONDS)
     prisma.contactTimer.count({
-      where: { userId, endedAt: { gte: dayStart }, durationSec: { gte: 60 } },
+      where: { userId, endedAt: { gte: dayStart }, durationSec: { gte: GOOD_CONVERSATION_SECONDS } },
     }),
     prisma.contactTimer.count({
-      where: { userId, endedAt: { gte: weekStart }, durationSec: { gte: 60 } },
+      where: { userId, endedAt: { gte: weekStart }, durationSec: { gte: GOOD_CONVERSATION_SECONDS } },
     }),
     prisma.contactTimer.count({
-      where: { userId, endedAt: { gte: monthStart }, durationSec: { gte: 60 } },
+      where: { userId, endedAt: { gte: monthStart }, durationSec: { gte: GOOD_CONVERSATION_SECONDS } },
     }),
 
     // TOTALS
@@ -251,7 +255,7 @@ export default async function AssociateHome() {
   const weeklyGoals = getWeeklyGoal(user.role, now);
   const monthlyGoals = getMonthlyGoal(user.role, now);
 
-  // Conversion: bookings per good conversation (how many good conv -> booking)
+  // Conversion: bookings per good conversation
   const dailyConv = goodConversationsToday ? bookingsToday / goodConversationsToday : 0;
   const weeklyConv = goodConversationsWeek ? bookingsWeek / goodConversationsWeek : 0;
   const monthlyConv = goodConversationsMonth ? bookingsMonth / goodConversationsMonth : 0;
@@ -309,11 +313,11 @@ export default async function AssociateHome() {
         <section className="grid gap-4 md:grid-cols-3">
           <KpiCard
             title="Hoje"
-            subtitle="Conversas longas (≥ 1min)"
+            subtitle="Conversas qualificadas (≥ 1min)"
             goodConversations={goodConversationsToday}
             goodConversationsGoal={GOOD_CONVERSATIONS_GOAL}
             bookings={bookingsToday}
-            bookingsGoal={dailyGoals.dailyBookings}
+            bookingsGoal={2}
             conversion={dailyConv}
             calls={callsToday}
             talkTimeSec={talkSecToday}
@@ -480,7 +484,7 @@ function KpiCard(props: {
           <div className="flex items-baseline justify-between">
             <span className="text-slate-600">
               Conversas qualificadas
-              <span className="block text-[10px] text-slate-400 mt-0.5">Duração ≥ 1 minuto</span>
+              <span className="block text-[10px] text-slate-400 mt-0.5">Duração ≥ {GOOD_CONVERSATION_SECONDS/60} minuto(s)</span>
             </span>
             <span className="font-semibold text-slate-900">{goodConversations} / {goodConversationsGoal}</span>
           </div>

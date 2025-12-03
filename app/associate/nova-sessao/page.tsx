@@ -29,20 +29,22 @@ const SEGMENT_CHOICES: {
   description: string;
 }[] = [
   {
-    key: "B_RESTAURACAO_CAFES_PASTELARIAS",
-    label: "Restaurantes & Cafés",
+    key: "F_LOJAS_ROUPA_CALCADO_DECORACAO",
+    label: "Lojas de Roupa & Decoração",
     description:
-      "Negócios focados em refeições, cafés, pastelarias e snack-bars.",
+      "Lojas de vestuário, calçado, decoração, concept stores e boutiques.",
   },
+  {
+    key: "E_MERCEARIAS_MERCADOS_PADARIAS",
+    label: "Mercearias & Mercados",
+    description:
+      "Pequenos mercados, mercearias, padarias e negócios de proximidade.",
+  },
+
   {
     key: "C_CABELEIREIROS_BARBEARIAS_ESTETICA",
     label: "Cabeleireiros & Estética",
     description: "Salões, barbearias, estética e beleza em geral.",
-  },
-  {
-    key: "D_OFICINAS_AUTO_PNEUS_SERVICOS_AUTO",
-    label: "Oficinas & Serviços Auto",
-    description: "Oficinas, pneus, mecânica e serviços ligados ao automóvel.",
   },
 ];
 
