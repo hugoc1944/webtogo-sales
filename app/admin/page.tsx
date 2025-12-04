@@ -272,35 +272,40 @@ export default async function AdminDashboard() {
   }
 
   // prepare prisma promises for actuals per week (contacts & sales)
-  const perWeekPromises: Promise<{ contacts: number; sales: number }>[] = weeks.map(
+  const perWeekPromises: Promise<{ bookings: number; sales: number }>[] = weeks.map(
     (w) =>
       (async () => {
         const weekStartD = startOfDay(w.start);
         const weekEndD = endOfDay(w.end);
-        // limit to December window
+
         const decStart = startOfDay(new Date(KPI_YEAR, KPI_MONTH_INDEX, 1));
         const decEnd = endOfMonth(new Date(KPI_YEAR, KPI_MONTH_INDEX, 1));
+
         const from = weekStartD < decStart ? decStart : weekStartD;
         const to = weekEndD > decEnd ? decEnd : weekEndD;
 
-        if (from > to) return { contacts: 0, sales: 0 };
+        // FIX TYPE HERE
+        if (from > to) return { bookings: 0, sales: 0 };
 
-        const [contactsCount, salesCount] = await Promise.all([
+        const [bookingsCount, salesCount] = await Promise.all([
           prisma.contact.count({
             where: {
               lastCalledAt: { gte: from, lte: to },
-              state: { notIn: ["NEW", "NO_ANSWER"] },
+              state: "BOOKED",
             },
           }),
           prisma.sale.count({
             where: { createdAt: { gte: from, lte: to } },
           }),
         ]);
-        return { contacts: contactsCount, sales: salesCount };
+
+        return { bookings: bookingsCount, sales: salesCount };
       })()
   );
 
+
   const perWeekActuals = await Promise.all(perWeekPromises);
+  const BOOKINGS_PER_DAY = 2; // new daily target per rep
 
   // build week targets (team totals)
   const perWeekTargets = weeks.map((w) => {
@@ -310,9 +315,9 @@ export default async function AdminDashboard() {
     const from = w.start < decStart ? decStart : w.start;
     const to = w.end > decEnd ? decEnd : w.end;
     const callingDays = countCallingDaysInRange(from, to);
-    const teamTargetContacts = callingDays * PER_REP_DAILy_CONTACTS * REPS_COUNT;
+    const teamTargetBookings = callingDays * BOOKINGS_PER_DAY * REPS_COUNT;
     const teamTargetSales = callingDays * PER_REP_DAILy_SALES * REPS_COUNT;
-    return { callingDays, teamTargetContacts, teamTargetSales, from, to };
+    return { callingDays, teamTargetBookings, teamTargetSales, from, to };
   });
 
   // compute month-level new metrics (booking rate, close rate, pendings %, refused %)
@@ -380,11 +385,13 @@ export default async function AdminDashboard() {
             <p className="text-xs text-slate-500">Objetivos calculados por semana para Dezembro 2025 (2 comerciais).</p>
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-[11px] text-slate-500 uppercase">Contactos alvo (mês)</p>
+                <p className="text-[11px] text-slate-500 uppercase">Bookings alvo (mês)</p>
                 <p className="text-lg font-semibold text-slate-900">
-                  {perWeekTargets.reduce((acc, w) => acc + w.teamTargetContacts, 0)}
+                  {perWeekTargets.reduce((acc, w) => acc + w.teamTargetBookings, 0)}
                 </p>
-                <p className="text-[11px] text-slate-500">Meta = dias de calling × objetivos diários × 2 comerciais</p>
+                <p className="text-[11px] text-slate-500">
+                  Meta = dias de calling × 2 bookings/dia × 2 comerciais
+                </p>
               </div>
               <div>
                 <p className="text-[11px] text-slate-500 uppercase">Vendas alvo (mês)</p>
@@ -507,8 +514,8 @@ export default async function AdminDashboard() {
                   <th className="px-4 py-3">Semana</th>
                   <th className="px-4 py-3">Período</th>
                   <th className="px-4 py-3">Dias de calling</th>
-                  <th className="px-4 py-3">Contactos alvo</th>
-                  <th className="px-4 py-3">Contactos reais</th>
+                  <th className="px-4 py-3">Bookings alvo</th>
+                  <th className="px-4 py-3">Bookings reais</th>
                   <th className="px-4 py-3">Cumprimento</th>
                   <th className="px-4 py-3">Vendas alvo</th>
                   <th className="px-4 py-3">Vendas reais</th>
@@ -518,8 +525,8 @@ export default async function AdminDashboard() {
               <tbody>
                 {weeks.map((w, i) => {
                   const t = perWeekTargets[i];
-                  const actual = perWeekActuals[i] ?? { contacts: 0, sales: 0 };
-                  const contactsPct = pct(actual.contacts, t.teamTargetContacts);
+                  const actual = perWeekActuals[i] ?? { bookings: 0, sales: 0 };
+                  const bookingsPct = pct(actual.bookings, t.teamTargetBookings);
                   const salesPct = pct(actual.sales, t.teamTargetSales);
                   const fromStr = new Date(t.from).toLocaleDateString("pt-PT");
                   const toStr = new Date(t.to).toLocaleDateString("pt-PT");
@@ -528,9 +535,11 @@ export default async function AdminDashboard() {
                       <td className="px-4 py-3">Semana {i + 1}</td>
                       <td className="px-4 py-3">{fromStr} — {toStr}</td>
                       <td className="px-4 py-3">{t.callingDays}</td>
-                      <td className="px-4 py-3">{t.teamTargetContacts}</td>
-                      <td className="px-4 py-3">{actual.contacts}</td>
-                      <td className="px-4 py-3">{contactsPct}%</td>
+                      <td className="px-4 py-3">{t.teamTargetBookings}</td>
+                      <td className="px-4 py-3">{actual.bookings}</td>
+                      <td className="px-4 py-3">
+                        {pct(actual.bookings, t.teamTargetBookings)}%
+                      </td>
                       <td className="px-4 py-3">{t.teamTargetSales.toFixed(1)}</td>
                       <td className="px-4 py-3">{actual.sales}</td>
                       <td className="px-4 py-3">{salesPct}%</td>

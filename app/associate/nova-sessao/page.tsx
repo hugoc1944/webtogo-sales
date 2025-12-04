@@ -23,30 +23,28 @@ type Contact = {
 };
 
 // segmentos principais para foco de sessão
-const SEGMENT_CHOICES: {
-  key: string;
-  label: string;
-  description: string;
-}[] = [
+const SEGMENT_CHOICES = [
   {
-    key: "F_LOJAS_ROUPA_CALCADO_DECORACAO",
-    label: "Lojas de Roupa & Decoração",
+    key: "J_PROFISSIONAIS_LIBERAIS_SERVICOS",
+    label: "Profissionais Liberais & Serviços",
     description:
-      "Lojas de vestuário, calçado, decoração, concept stores e boutiques.",
+      "Advogados, consultores, contabilidade, freelancers e serviços especializados.",
   },
   {
-    key: "E_MERCEARIAS_MERCADOS_PADARIAS",
-    label: "Mercearias & Mercados",
+    key: "G_CLINICAS_SAUDE_WELLNESS",
+    label: "Clínicas, Saúde & Wellness",
     description:
-      "Pequenos mercados, mercearias, padarias e negócios de proximidade.",
+      "Clínicas dentárias, estética avançada, spas, fisioterapia, psicologia e bem-estar.",
+  },
+  {
+    key: "B_RESTAURACAO_CAFES_PASTELARIAS",
+    label: "Restauração, Cafés & Pastelarias",
+    description:
+      "Restaurantes, snack-bares, cafés, pastelarias e negócios de alimentação.",
   },
 
-  {
-    key: "C_CABELEIREIROS_BARBEARIAS_ESTETICA",
-    label: "Cabeleireiros & Estética",
-    description: "Salões, barbearias, estética e beleza em geral.",
-  },
 ];
+
 
 export default function NovaSessao() {
   const router = useRouter();
