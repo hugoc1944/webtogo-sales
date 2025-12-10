@@ -6,7 +6,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import SaleButton from "../SaleButton";
 import { getLisbonNow } from "@/lib/categories";
-
+import NoteViewer from "../../../associate/pendentes/NoteViewer"; 
+import AddNoteButton from "../AddNoteButton"; 
 function startOfDay(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -128,12 +129,17 @@ export default async function ComercialDetail({ params }: PageProps) {
       orderBy: { lastCalledAt: "desc" },
       take: 25,
       select: {
-        id: true,
-        companyName: true,
-        companyCity: true,
-        segmentKey: true,
-        lastCalledAt: true,
+      id: true,
+      companyName: true,
+      companyCity: true,
+      segmentKey: true,
+      lastCalledAt: true,
+      bookingNotes: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+        select: { content: true, createdAt: true, authorId: true },
       },
+    },
     }),
   ]);
 
@@ -348,6 +354,7 @@ export default async function ComercialDetail({ params }: PageProps) {
                   <th className="px-4 py-3">Cidade</th>
                   <th className="px-4 py-3">Segmento</th>
                   <th className="px-4 py-3">Última chamada</th>
+                  <th className="px-4 py-3">Nota</th>
                   {viewerRole === "ADMIN" && (
                     <th className="px-4 py-3">Venda (€)</th>
                   )}
@@ -386,15 +393,16 @@ export default async function ComercialDetail({ params }: PageProps) {
                         </td>
                       )}
 
-                      {viewerRole === "ADMIN" && (
-                        <td className="px-4 py-3 text-right">
-                          <SaleButton
-                            contactId={c.id}
-                            userId={user.id}
-                            initialAmount={sale?.amount ?? null}
-                          />
-                        </td>
-                      )}
+                    <td className="px-4 py-3">
+                      <NoteViewer note={c.bookingNotes?.[0]?.content ?? null} />
+                    </td>
+
+                    {viewerRole === "ADMIN" && (
+                      <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                        <AddNoteButton contactId={c.id} />
+                        <SaleButton contactId={c.id} userId={user.id} initialAmount={sale?.amount ?? null} />
+                      </td>
+                    )}
                     </tr>
                   );
                 })}

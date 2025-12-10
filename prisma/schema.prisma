@@ -47,6 +47,21 @@ model User {
   sessions      CallSession[]  @relation("UserSessions")
   contactTimers ContactTimer[] @relation("UserContactTimers")
   sales         Sale[]         @relation("UserSales")
+
+  bookingNotes BookingNote[]
+}
+
+model BookingNote {
+  id         String   @id @default(cuid())
+  contact    Contact  @relation(fields: [contactId], references: [id])
+  contactId  String
+
+  author     User?    @relation(fields: [authorId], references: [id])
+  authorId   String?
+
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum SegmentKey {
@@ -73,12 +88,12 @@ model Contact {
   phoneWork   String?
   phoneMobile String?
   phoneCorp   String?
-  industry    String? // aqui podes pôr a "Category" do CSV (ex: Pastelaria)
+  industry    String? 
   keywords    String?
   website     String?
   companyCity String?
 
-  segmentKey SegmentKey? // 👈 bucket A–J
+  segmentKey SegmentKey? // bucket A–J
 
   state       LeadState @default(NEW)
   callNote    String?
@@ -98,6 +113,9 @@ model Contact {
   timers ContactTimer[] @relation("ContactTimers")
 
   sales Sale[] @relation("ContactSales")
+
+  bookingNotes BookingNote[]
+
 }
 
 model CallSession {

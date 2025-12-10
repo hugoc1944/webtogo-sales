@@ -6,11 +6,17 @@ export default function NoteViewer({ note }: { note?: string | null }) {
   const safe = note?.trim() ?? "";
 
   if (!safe) return <span className="text-slate-400">-</span>;
+  const preview = safe.length > 30 ? safe.slice(0, 30) + "…" : safe;
 
   return (
     <>
       <div className="flex items-center gap-2">
-        <span className="max-w-[360px] truncate" title={safe}>{safe}</span>
+        <span
+          className="max-w-[160px] truncate inline-block align-middle"
+          title="Clique no olho para ver a nota completa"
+        >
+          {preview}
+        </span>
         <button
           type="button"
           onClick={() => setOpen(true)}
